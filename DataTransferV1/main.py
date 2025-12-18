@@ -204,7 +204,9 @@ print("LoRa transmitter configured.\n")
 
 
 # -- TEST LOOP --
+packet=0
 while True:
+    packet+=1
 
     # attempt to init transmitter if not initialized
     if not TRANSMITTER_INITIALIZED:
@@ -216,6 +218,7 @@ while True:
     if BMP_INITIALIZED:
         altitude = bmp.altitude
         altitude = round(altitude, 2)
+        pressure = round(bmp.pressure,2)
     else:
         altitude = None
     
@@ -227,12 +230,12 @@ while True:
     
     
     #transmit data in parsable format: {altitude}#{gpsdata}
-    msg = f"{altitude}#{gps_data}"
+    msg = f"{packet}#{pressure}#{altitude}#{gps_data}"
 
-    print(f"[TX] Alt: {altitude if altitude is not None else 'None'} | GPS: {gps_data if gps_data else 'No Fix'}")
+    print(f"[TX] Packet: {packet} | Pressure: {pressure} | Alt: {altitude if altitude is not None else 'None'} | GPS: {gps_data if gps_data else 'No Fix'}")
     
     # Write data to SD card
-    sd_line = f"{altitude}#{gps_data if gps_data else 'None'}"
+    sd_line = f"{packet}#{pressure}#{altitude}#{gps_data if gps_data else 'None'}"
     if write_to_sd(sd_line):
         print("    ✓ Logged to SD")
     
