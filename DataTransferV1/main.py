@@ -11,6 +11,29 @@ BMP_INITIALIZED = False
 SD_INITIALIZED = False
 
 
+#BUZZER:
+tones = {
+    'c': 262,
+    'd': 294,
+    'e': 330,
+    'f': 349,
+    'g': 392,
+    'a': 440,
+    'b': 494,
+    'C': 523,
+    ' ': 0,
+}
+beeper = machine.PWM(machine.Pin(15))
+beeper.duty_u16(1024)  # 50% duty cycle
+beeper.freq(tones["f"])
+time.sleep(1)
+beeper.deinit()
+
+
+
+
+
+
 # Initialize LoRa transmitter
 def init_transmitter(tx_pin, rx_pin):
     global TRANSMITTER_INITIALIZED
@@ -189,7 +212,15 @@ send_cmd(uart_transmitter,'AT+RESET',wait_response=True, debug=True)
 send_cmd(uart_transmitter, "AT+ADDRESS=1", wait_response=True, debug=True)
 send_cmd(uart_transmitter, "AT+NETWORKID=18", wait_response=True, debug=True) #5
 send_cmd(uart_transmitter, "AT+BAND=915000000", wait_response=True, debug=True)
-send_cmd(uart_transmitter, "AT+PARAMETER=10,8,1,12", wait_response=True, debug=True) # SF=9, BW=9 (125kHz), CR=1, Preamble=12
+final_response = send_cmd(uart_transmitter, "AT+PARAMETER=10,8,1,12", wait_response=True, debug=True) # SF=9, BW=9 (125kHz), CR=1, Preamble=12
+if final_response and ("OK" in final_response):
+    beeper.duty_u16(1024)  
+    beeper.freq(tones["f"])
+    time.sleep(0.5)
+    beeper.freq(tones["a"])
+    time.sleep(0.5)
+    beeper.deinit()
+
 print("LoRa transmitter configured.\n")
 
 # --INIT RECEIVER--
@@ -205,6 +236,7 @@ print("LoRa transmitter configured.\n")
 
 # -- TEST LOOP --
 packet=0
+has_connection = 0
 while True:
     packet+=1
 
@@ -228,7 +260,20 @@ while True:
     else:
         gps_data = None
     
-    
+
+
+    # if has_connection ==1:
+    #     beeper.duty_u16(1024)  # 50% duty cycle
+    #     beeper.freq(tones["a"])
+    #     time.sleep(0.5)
+    #     beeper.freq(tones["c"])
+    #     time.sleep(0.5)
+    #     beeper.freq(tones["e"])
+    #     time.sleep(0.5)
+    #     beeper.deinit()
+
+
+
     #transmit data in parsable format: {altitude}#{gpsdata}
     msg = f"{packet}#{pressure}#{altitude}#{gps_data}"
 
@@ -240,8 +285,12 @@ while True:
         print("    ✓ Logged to SD")
     
     # Send command and check for response
+    beeper.duty_u16(1024)  # 50% duty cycle
+    beeper.freq(tones["c"])
     response = send_cmd(uart_transmitter, f"AT+SEND=2,{len(msg)},{msg}", wait_response=True, timeout=0.3, debug = True)
     if response and ("+OK" in response or response == "OK"):
         print("    ✓ Sent via LoRa")
-                
+    
+    beeper.deinit()
+
     time.sleep(1)  # Minimal delay - fastest possible (0.25)
