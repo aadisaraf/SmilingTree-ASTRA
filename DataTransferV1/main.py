@@ -23,7 +23,7 @@ tones = {
     'C': 523,
     ' ': 0,
 }
-beeper = machine.PWM(machine.Pin(15))
+beeper = machine.PWM(machine.Pin(16))
 beeper.duty_u16(1024)  # 50% duty cycle
 beeper.freq(tones["f"])
 time.sleep(1)
@@ -148,9 +148,9 @@ def get_gps_data(gps_uart, debug=False):
                     pass
             time.sleep(0.05)
         # Parse the collected data
+
         if len(raw_data) > 0:
             data = gps_parser.parse_gps_data(raw_data)
-            
             if debug:
                 print(f"GPS Debug: has_fix={data.has_fix}, lat={data.latitude:.6f}, lon={data.longitude:.6f}, sats={data.satellites}")
             

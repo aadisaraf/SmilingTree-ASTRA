@@ -23,7 +23,7 @@ tones = {
     'C': 523,
     ' ': 0,
 }
-beeper = machine.PWM(machine.Pin(15))
+beeper = machine.PWM(machine.Pin(16))
 beeper.duty_u16(1024)  # 50% duty cycle
 beeper.freq(tones["f"])
 time.sleep(1)
