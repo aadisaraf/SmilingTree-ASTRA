@@ -9,7 +9,8 @@ TRANSMITTER_INITIALIZED = False
 GPS_INITIALIZED = False
 BMP_INITIALIZED = False
 SD_INITIALIZED = False
-
+global has_fix
+has_fix = False
 
 #BUZZER:
 tones = {
@@ -26,9 +27,14 @@ tones = {
 beeper = machine.PWM(machine.Pin(16))
 beeper.duty_u16(1024)  # 50% duty cycle
 beeper.freq(tones["f"])
-time.sleep(1)
+time.sleep(0.5)
 beeper.deinit()
-
+beeper.freq(tones["f"])
+time.sleep(0.5)
+beeper.deinit()
+beeper.freq(tones["f"])
+time.sleep(0.5)
+beeper.deinit()
 
 
 
@@ -104,7 +110,7 @@ def init_sd_card(spi_id=1, sck_pin=10, mosi_pin=11, miso_pin=8, cs_pin=9):
         SD_INITIALIZED = True
         print("SD card initialized successfully")
         with open("/sd/flight_data.txt", "a") as f:
-            f.write("\n\nTimestamp#Altitude#Latitude#Longitude#GPS_Time|\n")
+            f.write("\n\nPacket#Timestamp#Altitude#Latitude#Longitude#GPS_Time|\n")
         return sd
     except Exception as e:
         print(f"Failed to initialize SD card: {e}")
@@ -135,6 +141,8 @@ NOTE: https://core-electronics.com.au/guides/raspberry-pi-pico/how-to-add-gps-to
 NOTE: gps_parser returns positive and negative values for ease in calculations. calculations back to latitude/longtitude are a xy plane conversion
 """
 def get_gps_data(gps_uart, debug=False):
+    global has_fix
+    has_fix = False
     try:
         # Collect GPS data as fast as possible (0.3 seconds)
         raw_data = ""
@@ -152,10 +160,11 @@ def get_gps_data(gps_uart, debug=False):
         if len(raw_data) > 0:
             data = gps_parser.parse_gps_data(raw_data)
             if debug:
-                print(f"GPS Debug: has_fix={data.has_fix}, lat={data.latitude:.6f}, lon={data.longitude:.6f}, sats={data.satellites}")
+                print(f"GPS Debug: has_fix={data.has_fix}, lat={data.latitude:.6f}, lon={data.longitude:.6f}, sats={data.satellites}, date={data.date}")
             
             if data.has_fix:
-                return f"{data.latitude:.6f}#{data.longitude:.6f}#{data.time}"
+                has_fix = True
+                return f"{data.latitude:.6f}#{data.longitude:.6f}#{data.time}#{data.date}"
             else:
                 if debug:
                     print(f"GPS: No fix yet (Satellites: {data.satellites})")
@@ -253,6 +262,7 @@ while True:
         pressure = round(bmp.pressure,2)
     else:
         altitude = None
+        pressure = None
     
     # Get GPS data directly from UART
     if GPS_INITIALIZED:
@@ -275,7 +285,7 @@ while True:
 
 
     #transmit data in parsable format: {altitude}#{gpsdata}
-    msg = f"{packet}#{pressure}#{altitude}#{gps_data}"
+    msg = f"ST26#{packet}#{pressure}#{altitude}#{gps_data}"
 
     print(f"[TX] Packet: {packet} | Pressure: {pressure} | Alt: {altitude if altitude is not None else 'None'} | GPS: {gps_data if gps_data else 'No Fix'}")
     
@@ -285,8 +295,9 @@ while True:
         print("    ✓ Logged to SD")
     
     # Send command and check for response
-    beeper.duty_u16(1024)  # 50% duty cycle
-    beeper.freq(tones["c"])
+    if has_fix:
+        beeper.duty_u16(1024)  # 50% duty cycle
+        beeper.freq(tones["c"])
     response = send_cmd(uart_transmitter, f"AT+SEND=2,{len(msg)},{msg}", wait_response=True, timeout=0.3, debug = True)
     if response and ("+OK" in response or response == "OK"):
         print("    ✓ Sent via LoRa")
